@@ -17,7 +17,9 @@ const syncUser = inngest.createFunction(
             name: `${first_name || ""} ${last_name || ""}`,
             profileImage: image_url
         }
+        console.log("before user")
         await User.create(newUser)
+        console.log("after user")
         //todo: do sth else
     }
 )

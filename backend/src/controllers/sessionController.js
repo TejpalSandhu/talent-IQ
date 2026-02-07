@@ -2,6 +2,18 @@ import { MessageSearchSource } from "stream-chat"
 import { chatClient, streamClient } from "../lib/stream.js"
 import Session from "../models/Session.js"
 
+/**
+ * Create a new session, initialize a Stream video call and a chat channel, and persist the session.
+ *
+ * Expects req.body to include `problem` and `difficulty`, and req.user to include `_id` (host user id)
+ * and `clerkID` (Stream/Chat user id). On success sends a 201 response with the created session.
+ *
+ * Side effects: creates a Session document in the database, creates or fetches a Stream video call
+ * (using a generated callId), and creates a Stream chat channel for the session.
+ *
+ * @param {import('express').Request} req - Express request. Must have body: { problem, difficulty } and user: { _id, clerkID }.
+ * @param {import('express').Response} res - Express response used to send HTTP status and JSON payloads.
+ */
 export async function createSession(req, res) {
     try {
         const { problem, difficulty } = req.body
@@ -42,6 +54,14 @@ export async function createSession(req, res) {
     }
 }
 
+/**
+ * Retrieve up to 20 most recent active sessions and respond with their host profiles.
+ *
+ * Queries sessions whose status is "active", populates each session's host with
+ * basic profile fields (name, profileImage, email, clerkID), sorts results by
+ * creation time descending, limits to 20 entries, and sends a JSON response
+ * containing the sessions. Responds with HTTP 500 on internal errors.
+ */
 export async function getActiveSessions(_, res) {
     try {
         const sessions = await Session.find({ status: "active" })
@@ -57,6 +77,12 @@ export async function getActiveSessions(_, res) {
     }
 }
 
+/**
+ * Retrieve the current user's recent completed sessions where they were host or participant.
+ *
+ * Responds with status 200 and a JSON object { sessions } containing up to 20 sessions sorted by newest first on success;
+ * responds with status 500 and an error message on failure.
+ */
 export async function getMyRecentSessions(req, res) {
     try {
         const userId = req.user._id
@@ -76,6 +102,13 @@ export async function getMyRecentSessions(req, res) {
     }
 }
 
+/**
+ * Fetches a session by its ID and returns it in the HTTP response.
+ *
+ * If found, the session is returned with the host and participant populated
+ * (fields: `name`, `email`, `profileImage`, `clerkID`). If no session exists
+ * with the given ID, responds with 404. On unexpected errors, responds with 500.
+ */
 export async function getSessionById(req, res) {
     try {
         const { id } = req.params //destructure the value to get id
@@ -93,6 +126,18 @@ export async function getSessionById(req, res) {
     }
 }
 
+/**
+ * Add the current user as the participant of an existing session and add their clerk ID to the session chat channel.
+ *
+ * Expects `req.params.id` (session ID) and `req.user` containing `_id` (user ID) and `clerkID` (chat member ID).
+ *
+ * @param {Object} req - Express request object with `params.id` and `user` described above.
+ * @param {Object} res - Express response object used to send HTTP responses.
+ * @returns {Object} HTTP response:
+ *  - `200` with `{ session }` when the user successfully joins.
+ *  - `404` when the session does not exist or the session is already full.
+ *  - `500` on internal server error.
+ */
 export async function joinSession(req, res) {
     try {
         const { id } = req.params
@@ -120,7 +165,14 @@ export async function joinSession(req, res) {
     }
 }
 
-//use express-async-handler if code gets bigger instead of try catch everytime
+/**
+ * End an active session: mark it completed, delete the associated Stream video call and chat channel, and respond with the updated session.
+ *
+ * Looks up the session by `req.params.id`, verifies the requester (`req.user._id`) is the host, updates the session status to "completed", and removes the session's streaming and chat resources.
+ *
+ * @param {import('express').Request} req - Express request. Expects `req.params.id` (session id) and `req.user._id` (requesting user id).
+ * @param {import('express').Response} res - Express response used to send HTTP status and JSON body.
+ */
 export async function endSession(req, res) {
     try {
         const { id } = req.params
@@ -157,5 +209,4 @@ export async function endSession(req, res) {
         res.status(500).json({ message: "Internal Server Error" })
     }
 }
-
 

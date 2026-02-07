@@ -153,8 +153,9 @@ export async function endSession(req, res) {
         res.status(200).json({ session, message: "Session ended successfully" })
 
     } catch (error) {
-        console.log("Error in endSession controller:", error.message)
+        console.log("Error in joinSession controller:", error.message)
         res.status(500).json({ message: "Internal Server Error" })
+
     }
 }
 
